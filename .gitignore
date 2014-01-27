@@ -1,1 +1,14 @@
+*.pdf
+*.INC
+*.mcp
+*.mcs
+*.mcw
+
+# Assembled files #
+*.HEX
 *.hex
+*.cof
+*.err
+*.lst
+*.map
+*.O
