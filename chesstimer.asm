@@ -8,6 +8,7 @@
 ;
 ; Mainline
 ;   Initial
+;     InitLCD
 ;   ClockRunning
 ;   Button
 ;   LoopTime
@@ -50,6 +51,36 @@
 ;;;;;;; Mainline program ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 Mainline
+
+;;;;;;; Initial subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+Initial
+
+;;;;;;; InitLCD subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+InitLCD
+
+;;;;;;; LoopTime subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+Oscnum  equ  65536-25000+12+2	;10ms
+
+LoopTime
+	btfss   INTCON,TMR0IF	;wait until flag is raised after 10ms
+	bra     LoopTime
+	movff   INTCON,INTCONCOPY ;Disable interrupt flags
+	bcf     INTCON,GIEH
+	movff   TMR0L,TMR0LCOPY
+	movff   TMR0H,TMR0HCOPY
+	movlw   low  Oscnum
+	addwf   TMR0LCOPY,F
+	movlw   high  Oscnum
+	addwfc  TMR0HCOPY,F
+	movff   TMR0HCOPY,TMR0H
+	movff   TMR0LCOPY,TMR0L ;write 16-bit counter
+	movf    INTCONCOPY,W ;restore interrupts
+	andlw   B'10000000'
+	iorwf   INTCON,F
+	bcf     INTCON,TMR0IF ;clear timer0 flag
 
 
 	end			;End program
