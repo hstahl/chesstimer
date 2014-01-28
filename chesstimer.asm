@@ -34,13 +34,20 @@
 	INTCONCOPY                      ;Copy of INTCON for LoopTime
 	OLDBUTTON                       ;State of button at previous loop
 	WHITESTURN                      ;Which player's turn is being timed
+	LCDTOPROW:8                     ;Top row string for lcd
+	LCDBOTROW:8                     ;Bottom row string for lcd
 	endc
 
 ;;;;;;; Macro definitions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-movlf   macro  literal,dest             ;Lets the programmer more a literal to
+movlf   macro  literal,dest             ;Lets the programmer move a literal to
         movlw  literal                  ;file in a single line
 	movwf  dest
+	endm
+
+tbpnt   macro  stringname               ;Used to point table pointer to a string
+	movlf  high stringname,TBLPTRH  ;stored in RAM to be displayed on the
+	movlf  low stringname,TBLPTRL   ;LCD
 	endm
 
 ;;;;;;; Vectors ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -58,7 +65,7 @@ movlf   macro  literal,dest             ;Lets the programmer more a literal to
 ;;;;;;; Mainline program ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 Mainline
-	rcall Initial                   ;Initialize everything
+	rcall   Initial                 ;Initialize everything
 
 ;;;;;;; Initial subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -72,6 +79,26 @@ Initial
 	movlf   B'00010000',PORTA       ;Turn off LEDs on PORTA
 	clrf    OLDBUTTON               ;OLDBUTTON = 0
 	setf    WHITESTURN              ;White player starts
+                                        ;Set up character strings
+	movlf   0x80,LCDTOPROW          ;Cursor to top left
+	movlf   A'W',LCDTOPROW+1        ;Initially the top row will display
+	movlf   A' ',LCDTOPROW+2        ;"W 00:00"
+	movlf   A'0',LCDTOPROW+3
+	movlf   A'0',LCDTOPROW+4
+	movlf   A':',LCDTOPROW+5
+	movlf   A'0',LCDTOPROW+6
+	movlf   A'0',LCDTOPROW+7
+	movlf   0xC0,LCDBOTROW          ;Cursor to bottom left
+	movlf   A'B',LCDBOTROW+1        ;Initially the bottom row will display
+	movlf   A' ',LCDBOTROW+2        ;"B 00:00"
+	movlf   A'0',LCDBOTROW+3
+	movlf   A'0',LCDBOTROW+4
+	movlf   A':',LCDBOTROW+5
+	movlf   A'0',LCDBOTROW+6
+	movlf   A'0',LCDBOTROW+7
+
+	rcall   InitLCD                 ;Start up the display
+
 	return
 
 ;;;;;;; InitLCD subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
