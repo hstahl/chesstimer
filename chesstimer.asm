@@ -9,7 +9,7 @@
 ; Mainline
 ;   Initial
 ;     InitLCD
-;   ClockRunning
+;   ClockIncrement
 ;   Button
 ;   LoopTime
 ;
@@ -65,7 +65,7 @@ InitLCD
 Oscnum  equ  65536-25000+12+2	;10ms
 
 LoopTime
-	btfss   INTCON,TMR0IF	;wait until flag is raised after 10ms
+	btfss   INTCON,TMR0IF ;wait until flag is raised after 10ms
 	bra     LoopTime
 	movff   INTCON,INTCONCOPY ;Disable interrupt flags
 	bcf     INTCON,GIEH
@@ -81,6 +81,6 @@ LoopTime
 	andlw   B'10000000'
 	iorwf   INTCON,F
 	bcf     INTCON,TMR0IF ;clear timer0 flag
-
+	return
 
 	end			;End program
