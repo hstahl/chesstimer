@@ -9,8 +9,9 @@
 ; Mainline
 ;   Initial
 ;     InitLCD
-;   ClockIncrement
 ;   Button
+;     Do_Button
+;   ClockIncrement
 ;   LoopTime
 ;
 ;;;;;;; Assembler directives ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -67,6 +68,14 @@ tbpnt   macro   stringname              ;Used to point table pointer to a string
 
 Mainline
 	rcall   Initial                 ;Initialize everything
+
+	;LOOP_
+L01
+	  rcall   Button                ;Check if button is pressed
+	  rcall   LoopTime
+	;ENDLOOP_
+	bra     L01
+PL01
 
 ;;;;;;; Initial subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -132,6 +141,24 @@ L03
 	;UNTIL_   .Z.
 	bnz     L03
 RL03
+	return
+
+;;;;;;; Button subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+Button
+	movf    PORTD,w
+	andlw   b'00001000'             ;All except button bit = 0
+	cpfseq  OLDBUTTON
+	rcall   Do_Button               ;If state of button changed, go to
+	return                          ;Do_Button
+
+;;;;;;; Do_Button subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+Do_Button
+	movwf   OLDBUTTON
+	btfss   OLDBUTTON,3		;Find only rising edges, return on
+	return                          ;falling
+	negf    WHITESTURN              ;Change turn
 	return
 
 ;;;;;;; LoopTime subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
