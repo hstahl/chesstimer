@@ -36,6 +36,13 @@
 	WHITESTURN		;Which player's turn is being timed
 	endc
 
+;;;;;;; Macro definitions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+MOVLF   macro  literal,dest     ;Lets the programmer more a literal to file in
+        movlw  literal          ;a single line
+	movwf  dest
+	endm
+
 ;;;;;;; Vectors ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 	org  0x0000		;Reset vector
@@ -51,10 +58,21 @@
 ;;;;;;; Mainline program ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 Mainline
+	rcall Initial           ;Initialize everything
 
 ;;;;;;; Initial subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 Initial
+	movlf   B'11100001',TRISA       ;Set I/O for PORTA
+	movlf   B'11011100',TRISB       ;Set I/O for PORTB
+	movlf   B'11010010',TRISC       ;Set I/O for PORTC
+	movlf   B'00001111',TRISD       ;Set I/O for PORTD
+	movlf   B'00000100',TRISE       ;Set I/O for PORTE
+	movlf   B'10001000',T0CON       ;Set timer0 prescaler to 1:2
+	movlf   B'00010000',PORTA       ;Turn off LEDs on PORTA
+	clrf    OLDBUTTON               ;OLDBUTTON = 0
+	setf    WHITESTURN              ;White player starts
+	return
 
 ;;;;;;; InitLCD subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -82,5 +100,7 @@ LoopTime
 	iorwf   INTCON,F
 	bcf     INTCON,TMR0IF ;clear timer0 flag
 	return
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 	end			;End program
