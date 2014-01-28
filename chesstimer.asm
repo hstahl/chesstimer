@@ -29,6 +29,7 @@
 ;;;;;;; Variables ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 	cblock  0x000                   ;Beginning of access memory
+	COUNT                           ;Counter for use in loops
 	TMR0LCOPY                       ;Copy of sixteen-bit Timer0 for LoopTime
 	TMR0HCOPY
 	INTCONCOPY                      ;Copy of INTCON for LoopTime
@@ -40,27 +41,27 @@
 
 ;;;;;;; Macro definitions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-movlf   macro  literal,dest             ;Lets the programmer move a literal to
-        movlw  literal                  ;file in a single line
-	movwf  dest
+movlf   macro   literal,dest            ;Lets the programmer move a literal to
+        movlw   literal                 ;file in a single line
+	movwf   dest
 	endm
 
-tbpnt   macro  stringname               ;Used to point table pointer to a string
-	movlf  high stringname,TBLPTRH  ;stored in RAM to be displayed on the
-	movlf  low stringname,TBLPTRL   ;LCD
+tbpnt   macro   stringname              ;Used to point table pointer to a string
+	movlf   high stringname,TBLPTRH ;stored in RAM to be displayed on the
+	movlf   low stringname,TBLPTRL  ;LCD
 	endm
 
 ;;;;;;; Vectors ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-	org  0x0000                     ;Reset vector
+	org     0x0000                  ;Reset vector
 	nop
-	goto  Mainline
+	goto    Mainline
 
-	org  0x0008                     ;High priority interrupt
-	goto  $                         ;Trap
+	org     0x0008                  ;High priority interrupt
+	goto    $                       ;Trap
 
-	org  0x0018                     ;Low priority interrupt
-	goto  $                         ;Trap
+	org     0x0018                  ;Low priority interrupt
+	goto    $                       ;Trap
 
 ;;;;;;; Mainline program ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -104,6 +105,34 @@ Initial
 ;;;;;;; InitLCD subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 InitLCD
+	movlf   10,COUNT                ;Wait for 0.1 seconds
+	;REPEAT_
+L02
+	  rcall   LoopTime
+	  decf    COUNT,F
+	;UNTIL_   .Z.
+	bnz     L02
+RL02
+	bcf     PORTE,0                 ;RS=0 for command
+	tbpnt   LCDstr                  ;Set up table pointer to init string
+	tblrd*                          ;Get first byte from string into TABLAT
+	;REPEAT_
+L03
+	  bsf     PORTE,1               ;Drive E high
+	  movff   TABLAT,PORTD          ;Send upper nibble
+	  bcf     PORTE,1               ;Drive E low so LCD will process input
+	  rcall   LoopTime              ;Wait 10msec
+	  bsf     PORTE,1               ;Drive E high
+	  swapf   TABLAT,W              ;Swap nibbles
+	  movwf   PORTD                 ;Send lower nibble
+	  bcf     PORTE,1               ;Drive E low so LCD will process input
+	  rcall   LoopTime              ;Wait 10msec
+	  tblrd*
+	  movf    TABLAT,F              ;Is it zero?
+	;UNTIL_   .Z.
+	bnz     L03
+RL03
+	return
 
 ;;;;;;; LoopTime subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -126,7 +155,12 @@ LoopTime
 	andlw   B'10000000'
 	iorwf   INTCON,F
 	bcf     INTCON,TMR0IF           ;clear timer0 flag
+
 	return
+
+;;;;;;; Constant Strings ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+LCDstr  db      0x33,0x32,0x28,0x01,0x0c,0x06,0x00 ;init string for LCD display
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
