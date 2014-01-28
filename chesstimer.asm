@@ -28,37 +28,37 @@
 
 ;;;;;;; Variables ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-	cblock  0x000		;Beginning of access memory
-	TMR0LCOPY		;Copy of sixteen-bit Timer0 used by LoopTime
+	cblock  0x000                   ;Beginning of access memory
+	TMR0LCOPY                       ;Copy of sixteen-bit Timer0 for LoopTime
 	TMR0HCOPY
-	INTCONCOPY		;Copy of INTCON for LoopTime
-	OLDBUTTON		;State of button at previous loop
-	WHITESTURN		;Which player's turn is being timed
+	INTCONCOPY                      ;Copy of INTCON for LoopTime
+	OLDBUTTON                       ;State of button at previous loop
+	WHITESTURN                      ;Which player's turn is being timed
 	endc
 
 ;;;;;;; Macro definitions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-MOVLF   macro  literal,dest     ;Lets the programmer more a literal to file in
-        movlw  literal          ;a single line
+movlf   macro  literal,dest             ;Lets the programmer more a literal to
+        movlw  literal                  ;file in a single line
 	movwf  dest
 	endm
 
 ;;;;;;; Vectors ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-	org  0x0000		;Reset vector
+	org  0x0000                     ;Reset vector
 	nop
 	goto  Mainline
 
-	org  0x0008		;High priority interrupt
-	goto  $			;Trap
+	org  0x0008                     ;High priority interrupt
+	goto  $                         ;Trap
 
-	org  0x0018		;Low priority interrupt
-	goto  $			;Trap
+	org  0x0018                     ;Low priority interrupt
+	goto  $                         ;Trap
 
 ;;;;;;; Mainline program ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 Mainline
-	rcall Initial           ;Initialize everything
+	rcall Initial                   ;Initialize everything
 
 ;;;;;;; Initial subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -80,12 +80,12 @@ InitLCD
 
 ;;;;;;; LoopTime subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-Oscnum  equ  65536-25000+12+2	;10ms
+Oscnum  equ     65536-25000+12+2        ;10ms
 
 LoopTime
-	btfss   INTCON,TMR0IF ;wait until flag is raised after 10ms
+	btfss   INTCON,TMR0IF           ;wait until flag is raised after 10ms
 	bra     LoopTime
-	movff   INTCON,INTCONCOPY ;Disable interrupt flags
+	movff   INTCON,INTCONCOPY       ;Disable interrupt flags
 	bcf     INTCON,GIEH
 	movff   TMR0L,TMR0LCOPY
 	movff   TMR0H,TMR0HCOPY
@@ -94,13 +94,13 @@ LoopTime
 	movlw   high  Oscnum
 	addwfc  TMR0HCOPY,F
 	movff   TMR0HCOPY,TMR0H
-	movff   TMR0LCOPY,TMR0L ;write 16-bit counter
-	movf    INTCONCOPY,W ;restore interrupts
+	movff   TMR0LCOPY,TMR0L         ;write 16-bit counter
+	movf    INTCONCOPY,W            ;restore interrupts
 	andlw   B'10000000'
 	iorwf   INTCON,F
-	bcf     INTCON,TMR0IF ;clear timer0 flag
+	bcf     INTCON,TMR0IF           ;clear timer0 flag
 	return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-	end			;End program
+	end                             ;End program
