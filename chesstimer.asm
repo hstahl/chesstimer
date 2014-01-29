@@ -9,9 +9,21 @@
 ; Mainline
 ;   Initial
 ;     InitLCD
+;       LoopTime
+;     DisplayV
+;       T40
+;     WaitButton
+;       Button
+;         Do_Button
 ;   Button
 ;     Do_Button
 ;   ClockIncrement
+;     ClockW
+;       DisplayV
+;         T40
+;     ClockB
+;       DisplayV
+;         T40
 ;   LoopTime
 ;
 ;;;;;;; Assembler directives ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -36,8 +48,8 @@
 	INTCONCOPY                      ;Copy of INTCON for LoopTime
 	OLDBUTTON                       ;State of button at previous loop
 	WHITESTURN                      ;Which player's turn is being timed
-	LCDTOPROW:8                     ;Top row string for lcd
-	LCDBOTROW:8                     ;Bottom row string for lcd
+	LCDTOPROW:9                     ;Top row string for lcd
+	LCDBOTROW:9                     ;Bottom row string for lcd
 	endc
 
 ;;;;;;; Macro definitions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -98,6 +110,7 @@ Initial
 	movlf   A':',LCDTOPROW+5
 	movlf   A'0',LCDTOPROW+6
 	movlf   A'0',LCDTOPROW+7
+	movlf   0x00,LCDTOPROW+8        ;Terminating byte
 	movlf   0xC0,LCDBOTROW          ;Cursor to bottom left
 	movlf   A'B',LCDBOTROW+1        ;Initially the bottom row will display
 	movlf   A' ',LCDBOTROW+2        ;"B 00:00"
@@ -106,6 +119,7 @@ Initial
 	movlf   A':',LCDBOTROW+5
 	movlf   A'0',LCDBOTROW+6
 	movlf   A'0',LCDBOTROW+7
+	movlf   0x00,LCDBOTROW+8        ;Terminating byte
 
 	rcall   InitLCD                 ;Start up the display
 
@@ -136,17 +150,38 @@ L03
 	  movwf   PORTD                 ;Send lower nibble
 	  bcf     PORTE,1               ;Drive E low so LCD will process input
 	  rcall   LoopTime              ;Wait 10msec
-	  tblrd*
+	  tblrd+*
 	  movf    TABLAT,F              ;Is it zero?
 	;UNTIL_   .Z.
 	bnz     L03
 RL03
 	return
 
+;;;;;;; DisplayV ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+DisplayV
+	bcf     PORTE,0                 ;Drive RS pin low for cursor positioning
+	;REPEAT_
+L04
+	  bsf     PORTE,1               ;Drive E pin high
+	  movff   INDF0,PORTD           ;Send upper nibble
+	  bcf     PORTE,1               ;Drive E pin low to accept nibble
+	  bsf     PORTE,1               ;Drive E pin high again
+	  swapf   INDF0,W               ;Swap nibbles
+          movwf   PORTD                 ;Write lower nibble
+          bcf     PORTE,1               ;Drive E pin low to process byte
+	  rcall   T40                   ;Wait 40 usec
+	  bsf     PORTE,0               ;Drive RS pin high to read characters
+	  movf    PREINC0,W             ;Increment pointer and get next byte
+	;UNTIL_   .Z.                   ;Is it zero?
+	bnz     L04
+RL04
+	return
+
 ;;;;;;; Button subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 Button
-	movf    PORTD,w
+	movf    PORTD,W
 	andlw   b'00001000'             ;All except button bit = 0
 	cpfseq  OLDBUTTON
 	rcall   Do_Button               ;If state of button changed, go to
@@ -156,9 +191,14 @@ Button
 
 Do_Button
 	movwf   OLDBUTTON
-	btfss   OLDBUTTON,3		;Find only rising edges, return on
+	btfss   OLDBUTTON,3             ;Find only rising edges, return on
 	return                          ;falling
 	negf    WHITESTURN              ;Change turn
+	return
+
+;;;;;;; T40 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+T40
 	return
 
 ;;;;;;; LoopTime subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
