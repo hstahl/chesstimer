@@ -15,9 +15,11 @@
 ;   WaitButton
 ;     Button
 ;       Do_Button
+;     BlinkAlive
 ;     LoopTime
 ;   Button
 ;     Do_Button
+;   BlinkAlive
 ;   ClockTick
 ;     ClockIncrement
 ;     UpdateClockV
@@ -152,6 +154,7 @@ WaitButton
 	;REPEAT_
 L02
 	  rcall   Button                ;Check for button press
+	  rcall   BlinkAlive            ;Blink LED while waiting
 	  rcall   LoopTime              ;Wait 10msec
           movf    WHITESTURN,F          ;Is it zero?
 	;UNTIL_
