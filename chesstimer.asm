@@ -12,9 +12,9 @@
 ;       LoopTime
 ;     DisplayV
 ;       T40
-;     WaitButton
-;       Button
-;         Do_Button
+;   WaitButton
+;     Button
+;       Do_Button
 ;   Button
 ;     Do_Button
 ;   ClockIncrement
@@ -80,6 +80,7 @@ tbpnt   macro   stringname              ;Used to point table pointer to a string
 
 Mainline
 	rcall   Initial                 ;Initialize everything
+	rcall   WaitButton              ;Starts the clock after one button press
 
 	;LOOP_
 L01
@@ -125,22 +126,38 @@ Initial
 
 	return
 
+;;;;;;; WaitButton ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; The program waits until the button is pressed once.
+
+WaitButton
+	;REPEAT_
+L02
+	  rcall   Button                ;Check for button press
+	  rcall   LoopTime              ;Wait 10msec
+          movf    WHITESTURN,F          ;Is it zero?
+	;UNTIL_
+	bnz      L02
+RL02
+	setf    WHITESTURN              ;Set game to white player's turn again
+	return
+
 ;;;;;;; InitLCD subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 InitLCD
 	movlf   10,COUNT                ;Wait for 0.1 seconds
 	;REPEAT_
-L02
+L03
 	  rcall   LoopTime
 	  decf    COUNT,F
 	;UNTIL_   .Z.
-	bnz     L02
-RL02
+	bnz     L03
+RL03
 	bcf     PORTE,0                 ;RS=0 for command
 	tbpnt   LCDstr                  ;Set up table pointer to init string
 	tblrd*                          ;Get first byte from string into TABLAT
 	;REPEAT_
-L03
+L04
 	  bsf     PORTE,1               ;Drive E high
 	  movff   TABLAT,PORTD          ;Send upper nibble
 	  bcf     PORTE,1               ;Drive E low so LCD will process input
@@ -153,16 +170,20 @@ L03
 	  tblrd+*
 	  movf    TABLAT,F              ;Is it zero?
 	;UNTIL_   .Z.
-	bnz     L03
-RL03
+	bnz     L04
+RL04
 	return
 
 ;;;;;;; DisplayV ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; Display a character vector stored in INDF0 on the LCD. The first byte sets the
+; cursor position. The following ones are displayed as characters. The vector
+; should terminate with a zero.
 
 DisplayV
 	bcf     PORTE,0                 ;Drive RS pin low for cursor positioning
 	;REPEAT_
-L04
+L05
 	  bsf     PORTE,1               ;Drive E pin high
 	  movff   INDF0,PORTD           ;Send upper nibble
 	  bcf     PORTE,1               ;Drive E pin low to accept nibble
@@ -174,8 +195,8 @@ L04
 	  bsf     PORTE,0               ;Drive RS pin high to read characters
 	  movf    PREINC0,W             ;Increment pointer and get next byte
 	;UNTIL_   .Z.                   ;Is it zero?
-	bnz     L04
-RL04
+	bnz     L05
+RL05
 	return
 
 ;;;;;;; Button subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -197,11 +218,24 @@ Do_Button
 	return
 
 ;;;;;;; T40 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; Pause for 40 microseconds or 40/0.4 = 100 clock cycles
+; Assumes 10/4 = 2.5 MHz internal clock rate
 
 T40
+	movlw 100/3                     ;Each REPEAT loop takes 3 cycles
+	movwf COUNT
+	;REPEAT_
+L06
+	  decf    COUNT,F
+	;UNTIL_   .Z.
+	bnz     L06
+RL06
 	return
 
 ;;;;;;; LoopTime subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; Waits until 10ms has passed since the last call using Timer0.
 
 Oscnum  equ     65536-25000+12+2        ;10ms
 
