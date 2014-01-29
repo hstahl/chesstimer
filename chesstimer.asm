@@ -12,11 +12,11 @@
 ;       LoopTime
 ;     DisplayV
 ;       T40
-;   WaitButton
-;     Button
-;       Do_Button
-;     BlinkAlive
-;     LoopTime
+;     WaitButton
+;       Button
+;         Do_Button
+;       BlinkAlive
+;       LoopTime
 ;   Button
 ;     Do_Button
 ;   BlinkAlive
@@ -85,7 +85,6 @@ tbpnt   macro   stringname              ;Used to point table pointer to a string
 
 Mainline
 	rcall   Initial                 ;Initialize everything
-	rcall   WaitButton              ;Starts the clock after one button press
 
 	;LOOP_
 L01
@@ -143,6 +142,8 @@ Initial
 
 	rcall   InitLCD                 ;Start up the display
 	rcall   DisplayV                ;Display clocks
+	rcall   WaitButton              ;Starts the clock after one button press
+
 
 	return
 
