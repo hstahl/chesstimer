@@ -237,16 +237,23 @@ ClockSelect
 	bra     B06
 	bra     B07
 B06
+	lfsr    0,LCDTOPROW+7           ;Load address of LCDTOPROW+7 to FSR0
 	lfsr    1,WCLOCK                ;Load address of WCLOCK to FSR1
+	rcall   ClockIncrement          ;Increment the time played
+	lfsr    1,WCLOCK+1              ;Point to seconds in WCLOCK
+	rcall   UpdateClockV            ;Update clock vector
 	lfsr    0,LCDTOPROW             ;Load address of LCDTOPROW to FSR0
+	rcall   DisplayV                ;Display time played
 	bra     B08
 B07
+	lfsr    0,LCDBOTROW+7           ;Load address of LCDBOTROW+7 to FSR0
 	lfsr    1,BCLOCK                ;Load address of BCLOCK to FSR1
-	lfsr    0,LCDBOTROW             ;Load address of LCDBOTROW to FSR0
-B08
 	rcall   ClockIncrement          ;Increment the time played
+	lfsr    1,BCLOCK+1              ;Point to seconds in BCLOCK
 	rcall   UpdateClockV            ;Update clock vector
+	lfsr    0,LCDBOTROW             ;Load address of LCDBOTROW to FSR0
 	rcall   DisplayV                ;Display time played
+B08
 	return
 
 ;;;;;;; ClockIncrement subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -277,7 +284,10 @@ B09
 
 ;;;;;;; UpdateClockV subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+Zeropos equ     A'0'                    ;Need to add this to a number to get an
+                                        ;ascii character of it
 UpdateClockV
+	
 	return
 
 ;;;;;;; T40 subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
