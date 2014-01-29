@@ -42,6 +42,7 @@
 
 	cblock  0x000                   ;Beginning of access memory
 	COUNT                           ;Counter for use in loops
+	ALIVECNT                        ;Used by BlinkAlive subroutine
 	TMR0LCOPY                       ;Copy of sixteen-bit Timer0 for LoopTime
 	TMR0HCOPY
 	INTCONCOPY                      ;Copy of INTCON for LoopTime
@@ -102,6 +103,7 @@ Initial
 	movlf   B'00000100',TRISE       ;Set I/O for PORTE
 	movlf   B'10001000',T0CON       ;Set timer0 prescaler to 1:2
 	movlf   B'00010000',PORTA       ;Turn off LEDs on PORTA
+	clrf    ALIVECNT                ;Blink led every 100 loops = 1sec
 	clrf    OLDBUTTON               ;OLDBUTTON = 0
 	setf    WHITESTURN              ;White player starts
 
@@ -303,6 +305,19 @@ UpdateClockV
 	
 	return
 
+;;;;;;; BlinkAlive subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; This subroutine briefly blinks the LED next to the PIC every second.
+
+BlinkAlive
+	bsf     PORTA,RA4               ;Turn off LED ('1' => OFF lor LED D2)
+	decf    ALIVECNT,F              ;Decrement loop counter and return if nz
+	bnz     B10
+	movlf   100,ALIVECNT            ;Reinitialize ALIVECNT
+	bcf     PORTA,RA4               ;Turn on LED for ten msec
+B10
+	return
+
 ;;;;;;; T40 subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
 ; Pause for 40 microseconds or 40/0.4 = 100 clock cycles
@@ -312,11 +327,11 @@ T40
 	movlw 100/3                     ;Each REPEAT loop takes 3 cycles
 	movwf COUNT
 	;REPEAT_
-L06
+L11
 	  decf    COUNT,F
 	;UNTIL_   .Z.
-	bnz     L06
-RL06
+	bnz     L11
+RL11
 	return
 
 ;;;;;;; LoopTime subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
