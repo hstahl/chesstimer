@@ -141,7 +141,10 @@ Initial
 	movlf   0x00,LCDBOTROW+8        ;Terminating byte
 
 	rcall   InitLCD                 ;Start up the display
+	lfsr    0,LCDTOPROW
 	rcall   DisplayV                ;Display clocks
+	lfsr    0,LCDBOTROW
+	rcall   DisplayV
 	rcall   WaitButton              ;Starts the clock after one button press
 
 
