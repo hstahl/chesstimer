@@ -18,17 +18,15 @@
 ;   Button
 ;     Do_Button
 ;   ClockSelect
-;     ClockW
-;       DisplayV
-;         T40
-;     ClockB
-;       DisplayV
-;         T40
+;     ClockIncrement
+;     UpdateClockV
+;     DisplayV
+;       T40
 ;   LoopTime
 ;
 ;;;;;;; Assembler directives ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-	list  P=PIC18F452, F=INHX32, R=DEC, B=8, C=80
+	list P=PIC18F452, F=INHX32, C=160, N=0, ST=OFF, MM=OFF, R=DEC, X=ON
 	#include P18F452.INC
 
 ;;;;;;; Configuration bits ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -38,6 +36,7 @@
 	__CONFIG  _CONFIG2H, _WDT_OFF_2H  ;Watchdog timer disabled
 	__CONFIG  _CONFIG3H, _CCP2MX_ON_3H  ;CCP2 to RC1 (rather than to RB3)
 	__CONFIG  _CONFIG4L, _LVP_OFF_4L  ;RB5 enabled for I/O
+	errorlevel -314, -315          ;Ignore lfsr messages
 
 ;;;;;;; Variables ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -50,16 +49,8 @@
 	WHITESTURN                      ;Which player's turn is being timed
 	LCDTOPROW:9                     ;Top row string for lcd
 	LCDBOTROW:9                     ;Bottom row string for lcd
-	WMSECS                          ;White player's milliseconds
-	WSEC                            ;White player's seconds
-	WDSEC                           ;White player's tens of seconds
-	WMIN                            ;White player's minutes
-	WDMIN                           ;White player's tens of minutes
-	BMSECS                          ;Black player's milliseconds
-	BSEC                            ;Black player's seconds
-	BDSEC                           ;Black player's tens of seconds
-	BMIN                            ;Black player's minutes
-	BDMIN                           ;Black player's tens of minutes
+	WCLOCK:5                        ;White player's clock
+	BCLOCK:5			;Black player's clock
 	endc
 
 ;;;;;;; Macro definitions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -114,16 +105,16 @@ Initial
 	clrf    OLDBUTTON               ;OLDBUTTON = 0
 	setf    WHITESTURN              ;White player starts
 
-	clrf	WMSECS                  ;White player's milliseconds
-	clrf	WSEC                    ;White player's seconds
-	clrf	WDSEC                   ;White player's tens of seconds
-	clrf	WMIN                    ;White player's minutes
-	clrf	WDMIN                   ;White player's tens of minutes
-	clrf	BMSECS                  ;Black player's milliseconds
-	clrf	BSEC                    ;Black player's seconds
-	clrf	BDSEC                   ;Black player's tens of seconds
-	clrf	BMIN                    ;Black player's minutes
-	clrf	BDMIN                   ;Black player's tens of minutes
+	clrf    WCLOCK                  ;White player's msec
+	clrf    WCLOCK+1                ;White player's sec
+	clrf    WCLOCK+2                ;White player's tens of secs
+	clrf    WCLOCK+3                ;White player's mins
+	clrf    WCLOCK+4                ;White player's tens of mins
+	clrf    BCLOCK                  ;Black player's msec
+	clrf    BCLOCK+1                ;Black player's sec
+	clrf    BCLOCK+2                ;Black player's tens of secs
+	clrf    BCLOCK+3                ;Black player's mins
+	clrf    BCLOCK+4                ;Black player's tens of mins
                                         ;Set up character strings
 	movlf   0x80,LCDTOPROW          ;Cursor to top left
 	movlf   A'W',LCDTOPROW+1        ;Initially the top row will display
@@ -242,21 +233,51 @@ Do_Button
 ;;;;;;; ClockSelect subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ClockSelect
-	btfss  WHITESTURN,0             ;Skip to ClockW routine if white's turn
-	rcall  ClockB                   ;Run ClockB if black's turn
-	btfsc  WHITESTURN,0             ;Skip ahead if black's turn
-	rcall  ClockW                   ;Run ClockW if white's turn
-
+	btfsc   WHITESTURN,0            ;Skip if black player's turn
+	bra     B06
+	bra     B07
+B06
+	lfsr    1,WCLOCK                ;Load address of WCLOCK to FSR1
+	lfsr    0,LCDTOPROW             ;Load address of LCDTOPROW to FSR0
+	bra     B08
+B07
+	lfsr    1,BCLOCK                ;Load address of BCLOCK to FSR1
+	lfsr    0,LCDBOTROW             ;Load address of LCDBOTROW to FSR0
+B08
+	rcall   ClockIncrement          ;Increment the time played
+	rcall   UpdateClockV            ;Update clock vector
+	rcall   DisplayV                ;Display time played
 	return
 
-;;;;;;; ClockW subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;; ClockIncrement subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; Increments a clock vector found in INDF1 by 10msec and updates it to be
+; presentable in the form of 00:00.00
 
-ClockW
+ClockIncrement
+	incf    INDF1,F                 ;Increment (tens of) milliseconds by 1
+	movf    POSTINC1,W              ;Get amount of msec passed and move pntr
+	sublw   100                     ;After 100*10msec, increment seconds
+	bnz     B09                     ;If no need to increment, return
+	incf    INDF1,F                 ;Increment seconds passed
+	movf    POSTINC1,W              ;Get amount of sec passed and move pntr
+	sublw   10                      ;After 10 sec, increment tens of secs
+	bnz     B09                     ;If no need to increment, return
+	incf    INDF1,F                 ;Increment tens of seconds passed
+	movf    POSTINC1,W              ;Get tens of secs passed and move pntr
+	sublw   6                       ;After 6*10sec passed, increment mins
+	bnz     B09                     ;If no need to increment, return
+	incf    INDF1,F                 ;Increment minutes passed
+	movf    POSTINC1,W              ;Get minutes passed and move pntr
+	sublw   10                      ;After 10 mins, increment tens of mins
+	bnz     B09                     ;If no need to increment, return
+	incf    INDF1,F                 ;Increment tens of minutes passed
+B09
 	return
 
-;;;;;;; ClockB subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;; UpdateClockV subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-ClockB
+UpdateClockV
 	return
 
 ;;;;;;; T40 subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
