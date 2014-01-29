@@ -17,7 +17,7 @@
 ;       Do_Button
 ;   Button
 ;     Do_Button
-;   ClockIncrement
+;   ClockSelect
 ;     ClockW
 ;       DisplayV
 ;         T40
@@ -50,6 +50,16 @@
 	WHITESTURN                      ;Which player's turn is being timed
 	LCDTOPROW:9                     ;Top row string for lcd
 	LCDBOTROW:9                     ;Bottom row string for lcd
+	WMSECS                          ;White player's milliseconds
+	WSEC                            ;White player's seconds
+	WDSEC                           ;White player's tens of seconds
+	WMIN                            ;White player's minutes
+	WDMIN                           ;White player's tens of minutes
+	BMSECS                          ;Black player's milliseconds
+	BSEC                            ;Black player's seconds
+	BDSEC                           ;Black player's tens of seconds
+	BMIN                            ;Black player's minutes
+	BDMIN                           ;Black player's tens of minutes
 	endc
 
 ;;;;;;; Macro definitions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -85,7 +95,8 @@ Mainline
 	;LOOP_
 L01
 	  rcall   Button                ;Check if button is pressed
-	  rcall   LoopTime
+	  rcall   ClockSelect
+	  rcall   LoopTime              ;Wait the remainder of 10msec
 	;ENDLOOP_
 	bra     L01
 PL01
@@ -102,6 +113,17 @@ Initial
 	movlf   B'00010000',PORTA       ;Turn off LEDs on PORTA
 	clrf    OLDBUTTON               ;OLDBUTTON = 0
 	setf    WHITESTURN              ;White player starts
+
+	clrf	WMSECS                  ;White player's milliseconds
+	clrf	WSEC                    ;White player's seconds
+	clrf	WDSEC                   ;White player's tens of seconds
+	clrf	WMIN                    ;White player's minutes
+	clrf	WDMIN                   ;White player's tens of minutes
+	clrf	BMSECS                  ;Black player's milliseconds
+	clrf	BSEC                    ;Black player's seconds
+	clrf	BDSEC                   ;Black player's tens of seconds
+	clrf	BMIN                    ;Black player's minutes
+	clrf	BDMIN                   ;Black player's tens of minutes
                                         ;Set up character strings
 	movlf   0x80,LCDTOPROW          ;Cursor to top left
 	movlf   A'W',LCDTOPROW+1        ;Initially the top row will display
@@ -126,7 +148,7 @@ Initial
 
 	return
 
-;;;;;;; WaitButton ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;; WaitButton subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
 ; The program waits until the button is pressed once.
 
@@ -174,7 +196,7 @@ L04
 RL04
 	return
 
-;;;;;;; DisplayV ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;; DisplayV subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
 ; Display a character vector stored in INDF0 on the LCD. The first byte sets the
 ; cursor position. The following ones are displayed as characters. The vector
@@ -217,7 +239,27 @@ Do_Button
 	negf    WHITESTURN              ;Change turn
 	return
 
-;;;;;;; T40 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;; ClockSelect subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+ClockSelect
+	btfss  WHITESTURN,0             ;Skip to ClockW routine if white's turn
+	rcall  ClockB                   ;Run ClockB if black's turn
+	btfsc  WHITESTURN,0             ;Skip ahead if black's turn
+	rcall  ClockW                   ;Run ClockW if white's turn
+
+	return
+
+;;;;;;; ClockW subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+ClockW
+	return
+
+;;;;;;; ClockB subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+ClockB
+	return
+
+;;;;;;; T40 subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
 ; Pause for 40 microseconds or 40/0.4 = 100 clock cycles
 ; Assumes 10/4 = 2.5 MHz internal clock rate
