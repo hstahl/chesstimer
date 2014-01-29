@@ -17,7 +17,7 @@
 ;       Do_Button
 ;   Button
 ;     Do_Button
-;   ClockSelect
+;   ClockTick
 ;     ClockIncrement
 ;     UpdateClockV
 ;     DisplayV
@@ -86,7 +86,7 @@ Mainline
 	;LOOP_
 L01
 	  rcall   Button                ;Check if button is pressed
-	  rcall   ClockSelect
+	  rcall   ClockTick
 	  rcall   LoopTime              ;Wait the remainder of 10msec
 	;ENDLOOP_
 	bra     L01
@@ -230,9 +230,9 @@ Do_Button
 	negf    WHITESTURN              ;Change turn
 	return
 
-;;;;;;; ClockSelect subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;; ClockTick subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-ClockSelect
+ClockTick
 	btfsc   WHITESTURN,0            ;Skip if black player's turn
 	bra     B06
 	bra     B07
@@ -287,6 +287,19 @@ B09
 Zeropos equ     A'0'                    ;Need to add this to a number to get an
                                         ;ascii character of it
 UpdateClockV
+	movf    POSTINC1,W              ;Get seconds
+	addlw   Zeropos                 ;Convert to ASCII character
+	movwf   POSTDEC0                ;Update seconds in char vector
+	movf    POSTINC1,W              ;Get tens of seconds
+	addlw   Zeropos                 ;Convert to ASCII character
+	movwf   POSTDEC0                ;Update tens of seconds in char vector
+	movf    POSTDEC0,W              ;Skip over the colon character
+	movf    POSTINC1,W              ;Get minutes
+	addlw   Zeropos                 ;Convert to ASCII character
+	movwf   POSTDEC0                ;Update minutes in char vector
+	movf    INDF1,W                 ;Get tens of minutes
+	addlw   Zeropos                 ;Convert to ASCII character
+	movwf   INDF0                   ;Update tens of minutes in char vector
 	
 	return
 
