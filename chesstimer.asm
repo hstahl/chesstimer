@@ -140,6 +140,7 @@ Initial
 	movlf   0x00,LCDBOTROW+8        ;Terminating byte
 
 	rcall   InitLCD                 ;Start up the display
+	rcall   DisplayV                ;Display clocks
 
 	return
 
