@@ -103,7 +103,7 @@ Initial
 	movlf   B'00000100',TRISE       ;Set I/O for PORTE
 	movlf   B'10001000',T0CON       ;Set timer0 prescaler to 1:2
 	movlf   B'00010000',PORTA       ;Turn off LEDs on PORTA
-	clrf    ALIVECNT                ;Blink led every 100 loops = 1sec
+	movlf   100,ALIVECNT            ;Blink led every 100 loops = 1sec
 	clrf    OLDBUTTON               ;OLDBUTTON = 0
 	setf    WHITESTURN              ;White player starts
 
@@ -158,6 +158,8 @@ RL02
 	return
 
 ;;;;;;; InitLCD subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; Initialized the LCD with the configuration bytes found in a table
 
 InitLCD
 	movlf   10,COUNT                ;Wait for 0.1 seconds
@@ -215,6 +217,8 @@ RL05
 	return
 
 ;;;;;;; Button subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; Checks if button state has changed and runs Do_Button if it has.
 
 Button
 	movf    PORTD,W
@@ -224,6 +228,8 @@ Button
 	return                          ;Do_Button
 
 ;;;;;;; Do_Button subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; Changes the turn on a rising edge.
 
 Do_Button
 	movwf   OLDBUTTON
@@ -233,6 +239,9 @@ Do_Button
 	return
 
 ;;;;;;; ClockTick subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; Ticks the current player's clock ahead by 10msec and updates the string
+; displayed on the LCD.
 
 ClockTick
 	btfsc   WHITESTURN,0            ;Skip if black player's turn
@@ -285,6 +294,8 @@ B09
 	return
 
 ;;;;;;; UpdateClockV subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; Updates the clock string in INDF0 by the values found in INDF1.
 
 Zeropos equ     A'0'                    ;Need to add this to a number to get an
                                         ;ascii character of it
