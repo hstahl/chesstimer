@@ -15,6 +15,7 @@
 ;   WaitButton
 ;     Button
 ;       Do_Button
+;     LoopTime
 ;   Button
 ;     Do_Button
 ;   ClockTick
@@ -87,7 +88,8 @@ Mainline
 	;LOOP_
 L01
 	  rcall   Button                ;Check if button is pressed
-	  rcall   ClockTick
+	  rcall   BlinkAlive            ;Blink a LED every 1 sec
+	  rcall   ClockTick             ;Add 10msec to one of the clocks
 	  rcall   LoopTime              ;Wait the remainder of 10msec
 	;ENDLOOP_
 	bra     L01
