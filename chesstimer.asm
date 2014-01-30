@@ -284,21 +284,25 @@ B08
 
 ClockIncrement
 	incf    INDF1,F                 ;Increment (tens of) milliseconds by 1
-	movf    POSTINC1,W              ;Get amount of msec passed and move pntr
+	movf    INDF1,W                 ;Get amount of msec passed
 	sublw   100                     ;After 100*10msec, increment seconds
 	bnz     B09                     ;If no need to increment, return
+	clrf    POSTINC1                ;Clear milliseconds and move pointer
 	incf    INDF1,F                 ;Increment seconds passed
-	movf    POSTINC1,W              ;Get amount of sec passed and move pntr
+	movf    INDF1,W                 ;Get amount of sec passed
 	sublw   10                      ;After 10 sec, increment tens of secs
 	bnz     B09                     ;If no need to increment, return
+	clrf    POSTINC1                ;Clear seconds and move pointer
 	incf    INDF1,F                 ;Increment tens of seconds passed
-	movf    POSTINC1,W              ;Get tens of secs passed and move pntr
+	movf    INDF1,W                 ;Get tens of secs passed
 	sublw   6                       ;After 6*10sec passed, increment mins
 	bnz     B09                     ;If no need to increment, return
+	clrf    POSTINC1                ;Clear tens of seconds and move pointer
 	incf    INDF1,F                 ;Increment minutes passed
-	movf    POSTINC1,W              ;Get minutes passed and move pntr
+	movf    INDF1,W                 ;Get minutes passed
 	sublw   10                      ;After 10 mins, increment tens of mins
 	bnz     B09                     ;If no need to increment, return
+	clrf    POSTINC1                ;Clear minutes and move pointer
 	incf    INDF1,F                 ;Increment tens of minutes passed
 B09
 	return
