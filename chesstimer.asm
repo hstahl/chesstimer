@@ -1,8 +1,9 @@
 ;;;;;;; chesstimer for QvikFlash ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
-; Uses LCD display for timekeeping
+; Uses onboard LCD for timekeeping
 ; Uses Timer0 for ten millisecond loop time
 ; Button changes turn between players
+; TODO: additional time behavior
 ;
 ;;;;;;; Program Hierarchy ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
@@ -12,16 +13,25 @@
 ;       LoopTime
 ;     DisplayV
 ;       T40
-;     WaitButton
-;       Button
-;         Do_Button
-;       BlinkAlive
-;       LoopTime
 ;   Button
 ;     Do_Button
+;       DoubleClick
 ;   BlinkAlive
-;   ClockTick
+;   ModeMenu
+;     DisplayC
+;       T40
+;   TimeMenu
+;     DisplayV
+;       T40
+;   WaitButton
+;     Button
+;       Do_Button
+;         DoubleClick
+;     BlinkAlive
+;     LoopTime
+;   ClockSelect
 ;     ClockIncrement
+;     ClockDecrement
 ;     UpdateClockV
 ;     DisplayV
 ;       T40
@@ -43,14 +53,25 @@
 
 ;;;;;;; Variables ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-	cblock  0x000                   ;Beginning of access memory
+STATS   equ     0x000                   ;Status bits for program
+TURN    equ     0                       ;The first bit signifies whose turn
+BTN     equ     1                       ;Was button pressed once in this loop?
+DBL     equ     2                       ;Was it a double click?
+MENU    equ     3                       ;Which menu should we go to?
+PLAY    equ     4                       ;Has the game started?
+INC     equ     5                       ;Increment or decrement clocks?
+FISCH   equ     6                       ;Fischer's clock added time
+DELAY   equ     7                       ;Delay before running clock
+
+	cblock  0x001                   ;Block in access memory
 	COUNT                           ;Counter for use in loops
+	TEMP                            ;Temporary variable available for use
+	DBLCLKCNTR                      ;Counts time window for a double click
 	ALIVECNT                        ;Used by BlinkAlive subroutine
 	TMR0LCOPY                       ;Copy of sixteen-bit Timer0 for LoopTime
 	TMR0HCOPY
 	INTCONCOPY                      ;Copy of INTCON for LoopTime
 	OLDBUTTON                       ;State of button at previous loop
-	WHITESTURN                      ;Which player's turn is being timed
 	LCDTOPROW:9                     ;Top row string for lcd
 	LCDBOTROW:9                     ;Bottom row string for lcd
 	WCLOCK:5                        ;White player's clock
@@ -90,7 +111,12 @@ Mainline
 L01
 	  rcall   Button                ;Check if button is pressed
 	  rcall   BlinkAlive            ;Blink a LED every 1 sec
-	  rcall   ClockTick             ;Add 10msec to one of the clocks
+	  rcall   ModeMenu              ;Select game mode
+	  rcall   TimeMenu              ;Select available time
+	  rcall   WaitButton            ;Starts the game after one button press
+	  rcall   ClockSelect           ;Add 10msec to one of the clocks
+	  movlw   B'11111001'
+	  andwf   STATS,F               ;Clear all button status bits
 	  rcall   LoopTime              ;Wait the remainder of 10msec
 	;ENDLOOP_
 	bra     L01
@@ -108,7 +134,8 @@ Initial
 	movlf   B'00010000',PORTA       ;Turn off LEDs on PORTA
 	movlf   100,ALIVECNT            ;Blink led every 100 loops = 1sec
 	clrf    OLDBUTTON               ;OLDBUTTON = 0
-	setf    WHITESTURN              ;White player starts
+	clrf    STATS
+	bsf     STATS,TURN              ;White player starts
 
 	clrf    WCLOCK                  ;White player's msec
 	clrf    WCLOCK+1                ;White player's sec
@@ -141,12 +168,6 @@ Initial
 	movlf   0x00,LCDBOTROW+8        ;Terminating byte
 
 	rcall   InitLCD                 ;Start up the display
-	lfsr    0,LCDTOPROW
-	rcall   DisplayV                ;Display clocks
-	lfsr    0,LCDBOTROW
-	rcall   DisplayV
-	rcall   WaitButton              ;Starts the clock after one button press
-
 
 	return
 
@@ -155,16 +176,110 @@ Initial
 ; The program waits until the button is pressed once.
 
 WaitButton
+	btfss   STATS,MENU              ;Only run this routine once after menus.
+	return                          ;Then clear MENU bit to never come
+	btfss   STATS,PLAY              ;here again.
+	return
 	;REPEAT_
 L02
 	  rcall   Button                ;Check for button press
 	  rcall   BlinkAlive            ;Blink LED while waiting
 	  rcall   LoopTime              ;Wait 10msec
-          movf    WHITESTURN,F          ;Is it zero?
-	;UNTIL_
-	bnz      L02
+          btfss   STATS,TURN            ;Is it zero?
+	;UNTIL_   .Z.
+	bra     L02
 RL02
-	setf    WHITESTURN              ;Set game to white player's turn again
+	bcf     STATS,MENU              ;Don't visit the loop again.
+	bsf     STATS,TURN              ;Set game to white player's turn again
+	return
+
+;;;;;;; ModeMenu subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+ModeMenu
+	btfsc   STATS,PLAY              ;If game has started, skip menu
+	return
+	btfsc   STATS,MENU              ;If menu bit = 1, skip to time menu
+	return
+	btfsc   STATS,DBL               ;If double click, return with these
+	bra     B07                     ;settings immediately
+	tbpnt   Modec                   ;Print "Mode:" on first line
+	rcall   DisplayC
+	btfsc   STATS,FISCH             ;Print Fischer on bottom
+	bra     B03
+	btfsc   STATS,DELAY             ;Print Delay on bottom
+	bra     B04
+	bra     B05                     ;Or print Normal on bottom
+B03
+	tbpnt   Fischer
+	btfss   STATS,BTN               ;If button was pressed, rotate menu
+	bra     B06                     ;If button wasn't pressed, return
+	bcf     STATS,FISCH             ;Next loop, display delay as selected
+	bsf     STATS,DELAY
+	bra     B06
+B04
+	tbpnt   Delay
+	btfss   STATS,BTN               ;If button was pressed, rotate menu
+	bra     B06                     ;If button wasn't pressed, return
+	bcf     STATS,DELAY             ;Next loop, display normal as selected
+	bra     B06
+B05
+	tbpnt   Normal
+	btfss   STATS,BTN               ;If button was pressed, rotate menu
+	bra     B06                     ;If button wasn't pressed, return
+	bsf     STATS,FISCH             ;Next loop, display fischer as selected
+B06
+	rcall   DisplayC
+	return
+B07
+	bsf     STATS,MENU              ;Don't come to this menu anymore
+	return
+
+;;;;;;; TimeMenu subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+TimeMenu
+	btfsc   STATS,PLAY              ;If game has started, skip menu
+	return
+	btfss   STATS,MENU              ;If menu bit = 0, skip this menu
+	return
+	btfsc   STATS,DBL               ;If doubleclick, select these settings
+	bra     B10
+	btfss   STATS,BTN               ;If button wasn't pressed, return
+	bra     B09
+	lfsr    1,WCLOCK+4              ;Load tens of minutes to FSR1
+	movf    POSTDEC1,W              ;Get tens of minutes
+	mullw   10                      ;Multiply by ten
+	movf    PRODL,W                 ;Get product
+	addwf   FSR1,W                  ;Add minutes
+	movwf   TEMP                    ;Store minutes
+	movlw   15
+	cpfslt  TEMP                    ;If less than 15, skip
+	bra     B08
+	movlf   0,POSTINC1              ;Zero minutes
+	movlf   0,FSR1                  ;Zero tens of minutes
+	lfsr    1,BCLOCK+4              ;Point FSR1 to tens of minutes
+	movlf   0,POSTDEC1              ;Zero tens of minutes
+	movlf   0,INDF1                 ;Zero minutes
+	bsf     STATS,INC               ;Set clocks to increment over time
+	bra     B09
+B08
+	movlw   5                       ;If clocks were at 0...
+	addwf   INDF1,F                 ;Add 5 to minutes
+	lfsr    1,WCLOCK
+	rcall   ClockIncrement          ;Fix clock formatting
+	clrf    INDF1                   ;As a side effect, 10 msec were added
+	lfsr    1,BCLOCK
+	rcall   ClockIncrement          ;Fix clock formatting
+	clrf    INDF1                   ;As a side effect, 10 msec were added
+	bcf     STATS,INC               ;Set clocks to decrement over time
+B09
+	lfsr    0,LCDTOPROW
+	rcall   DisplayV                ;Display clocks
+	lfsr    0,LCDBOTROW
+	rcall   DisplayV
+	return
+B10
+	bsf     STATS,PLAY              ;Don't come to these menus again
+	bsf     STATS,TURN              ;This bit is used in WaitButton
 	return
 
 ;;;;;;; InitLCD subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -174,17 +289,17 @@ RL02
 InitLCD
 	movlf   10,COUNT                ;Wait for 0.1 seconds
 	;REPEAT_
-L03
+L11
 	  rcall   LoopTime
 	  decf    COUNT,F
 	;UNTIL_   .Z.
-	bnz     L03
-RL03
+	bnz     L11
+RL11
 	bcf     PORTE,0                 ;RS=0 for command
 	tbpnt   LCDstr                  ;Set up table pointer to init string
 	tblrd*                          ;Get first byte from string into TABLAT
 	;REPEAT_
-L04
+L12
 	  bsf     PORTE,1               ;Drive E high
 	  movff   TABLAT,PORTD          ;Send upper nibble
 	  bcf     PORTE,1               ;Drive E low so LCD will process input
@@ -197,8 +312,44 @@ L04
 	  tblrd+*
 	  movf    TABLAT,F              ;Is it zero?
 	;UNTIL_   .Z.
-	bnz     L04
-RL04
+	bnz     L12
+RL12
+	return
+
+;;;;;;; DisplayC subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; This subroutine is called with TBLPTR containing the address of a constant
+; display string.  It sends the bytes of the string to the LCD.  The first
+; byte sets the cursor position.  The remaining bytes are displayed, beginning
+; at that position.
+; This subroutine expects a normal one-byte cursor-positioning code, 0xhh, or
+; an occasionally used two-byte cursor-positioning code of the form 0x00hh.
+
+DisplayC
+	bcf     PORTE,0                 ;Drive RS pin low for cursor positioning
+	tblrd*                          ;Get byte from string into TABLAT
+	movf    TABLAT,F                ;Check for leading zero byte
+	;IF_    .Z.
+	bnz     B13
+	  tblrd+*                       ;If zero, get next byte
+	;ENDIF_
+B13
+	;REPEAT_
+L14
+	  bsf     PORTE,1               ;Drive E pin high
+	  movff   TABLAT,PORTD          ;Send upper nibble
+	  bcf     PORTE,1               ;Drive E pin low to accept nibble
+	  bsf     PORTE,1               ;Drive E pin high again
+	  swapf   TABLAT,W              ;Swap nibbles
+	  movwf   PORTD                 ;Write lower nibble
+	  bcf     PORTE,1               ;Drive E pin low to process byte
+	  rcall   T40                   ;Wait 40usec
+	  bsf     PORTE,0               ;Drive RS pin high to receive chars
+	  tblrd+*                       ;Increment pointer and get next byte
+	  movf    TABLAT,F              ;Is it zero?
+	;UNTIL_   .Z.
+	bnz     L14
+RL14
 	return
 
 ;;;;;;; DisplayV subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -210,7 +361,7 @@ RL04
 DisplayV
 	bcf     PORTE,0                 ;Drive RS pin low for cursor positioning
 	;REPEAT_
-L05
+L15
 	  bsf     PORTE,1               ;Drive E pin high
 	  movff   INDF0,PORTD           ;Send upper nibble
 	  bcf     PORTE,1               ;Drive E pin low to accept nibble
@@ -222,59 +373,95 @@ L05
 	  bsf     PORTE,0               ;Drive RS pin high to read characters
 	  movf    PREINC0,W             ;Increment pointer and get next byte
 	;UNTIL_   .Z.                   ;Is it zero?
-	bnz     L05
-RL05
+	bnz     L15
+RL15
 	return
 
 ;;;;;;; Button subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
-; Checks if button state has changed and runs Do_Button if it has.
+; Checks if button state has changed and runs Do_Button if it has. Counts to .5
+; seconds from the button press and waits for a second press to register a
+; double click. If no double click occurs within .5 seconds, does a single click
+; instead. DBLCLKCNTR will start incrementing in each loop after a button press.
+; If it reaches 50, it will be cleared and not incremented again until a new
+; press of the button. If the button is pressed again before 50 loops, a double
+; click is regocnized. A single press is regocnized after .5 seconds.
 
 Button
+	movf    DBLCLKCNTR,F            ;If counter 0, skip to end
+	bz      B16
+	incf    DBLCLKCNTR,F            ;If counter has started, increment
+	movlw   50                      ;50*10msec = 0.5sec
+	cpfslt  DBLCLKCNTR              ;If counter hasn't reached 50, skip
+	clrf    DBLCLKCNTR              ;Too late to double click now
+	movlw   0                       ;
+	cpfsgt  DBLCLKCNTR              ;Was the counter reset now?
+	bsf     STATS,BTN               ;After .5 seconds, do a single press of	
+                                        ;the button
 	movf    PORTD,W
 	andlw   b'00001000'             ;All except button bit = 0
 	cpfseq  OLDBUTTON
 	rcall   Do_Button               ;If state of button changed, go to
+B16
 	return                          ;Do_Button
 
 ;;;;;;; Do_Button subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
-; Changes the turn on a rising edge.
+; Recognizes a button press on a rising edge.
 
 Do_Button
 	movwf   OLDBUTTON
 	btfss   OLDBUTTON,3             ;Find only rising edges, return on
 	return                          ;falling
-	negf    WHITESTURN              ;Change turn
+	btg     STATS,TURN              ;Change turn immediately (no 0.5s wait)
+	movf    DBLCLKCNTR,W            ;Is the counter zero?
+	bz      B17                     ;If not, then
+	rcall   DoubleClick             ;It was a double click!
+	return
+B17
+	incf    DBLCLKCNTR,F            ;Not a double click, but start timing
 	return
 
-;;;;;;; ClockTick subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;
-; Ticks the current player's clock ahead by 10msec and updates the string
-; displayed on the LCD.
+;;;;;;; DoubleClick subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-ClockTick
-	btfsc   WHITESTURN,0            ;Skip if black player's turn
-	bra     B06
-	bra     B07
-B06
-	lfsr    0,LCDTOPROW+7           ;Load address of LCDTOPROW+7 to FSR0
+DoubleClick
+	clrf    DBLCLKCNTR
+	bsf     STATS,DBL               ;Change flags to double click instead of
+	bcf     STATS,BTN               ;one click
+	return
+
+;;;;;;; ClockSelect subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; Selects the correct clock to increment or decrement in this loop.
+
+ClockSelect
+	btfss   STATS,PLAY              ;If play flag isn't set, return
+	bra     B19
+	btfss   STATS,TURN              ;Skip if white's turn
+	bra     B18                     ;Select black's clock
+                                        ;Select white's clock
 	lfsr    1,WCLOCK                ;Load address of WCLOCK to FSR1
-	rcall   ClockIncrement          ;Increment the time played
+	btfss   STATS,INC               ;Skip if clocks are set to increment
+	rcall   ClockDecrement          ;Decrement clock
+	btfsc   STATS,INC               ;Skip if clocks are set to decrement
+	rcall   ClockIncrement          ;Increment clock
 	lfsr    1,WCLOCK+1              ;Point to seconds in WCLOCK
+	lfsr    0,LCDTOPROW+7           ;Load address of LCDTOPROW+7 to FSR0
 	rcall   UpdateClockV            ;Update clock vector
 	lfsr    0,LCDTOPROW             ;Load address of LCDTOPROW to FSR0
 	rcall   DisplayV                ;Display time played
-	bra     B08
-B07
-	lfsr    0,LCDBOTROW+7           ;Load address of LCDBOTROW+7 to FSR0
+B18
 	lfsr    1,BCLOCK                ;Load address of BCLOCK to FSR1
-	rcall   ClockIncrement          ;Increment the time played
+	btfss   STATS,INC               ;Skip if clocks are set to increment
+	rcall   ClockDecrement          ;Decrement clock
+	btfsc   STATS,INC               ;Skip if clocks are set to decrement
+	rcall   ClockIncrement          ;Increment clock
 	lfsr    1,BCLOCK+1              ;Point to seconds in BCLOCK
+	lfsr    0,LCDBOTROW+7           ;Load address of LCDBOTROW+7 to FSR0
 	rcall   UpdateClockV            ;Update clock vector
 	lfsr    0,LCDBOTROW             ;Load address of LCDBOTROW to FSR0
 	rcall   DisplayV                ;Display time played
-B08
+B19
 	return
 
 ;;;;;;; ClockIncrement subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -286,25 +473,71 @@ ClockIncrement
 	incf    INDF1,F                 ;Increment (tens of) milliseconds by 1
 	movf    INDF1,W                 ;Get amount of msec passed
 	sublw   100                     ;After 100*10msec, increment seconds
-	bnz     B09                     ;If no need to increment, return
-	clrf    POSTINC1                ;Clear milliseconds and move pointer
-	incf    INDF1,F                 ;Increment seconds passed
+	bnz     B20                     ;If no need to increment, return
+	movlw   100                     ;Substract 100 from milliseconds
+	subwf   INDF1,F                 ;
+	incf    PREINC1,F               ;Increment seconds passed
 	movf    INDF1,W                 ;Get amount of sec passed
 	sublw   10                      ;After 10 sec, increment tens of secs
-	bnz     B09                     ;If no need to increment, return
-	clrf    POSTINC1                ;Clear seconds and move pointer
-	incf    INDF1,F                 ;Increment tens of seconds passed
+	bnz     B20                     ;If no need to increment, return
+	movlw   10                      ;Substract 10 from seconds
+	subwf   INDF1,F                 ;
+	incf    PREINC1                 ;Increment tens of seconds passed
 	movf    INDF1,W                 ;Get tens of secs passed
 	sublw   6                       ;After 6*10sec passed, increment mins
-	bnz     B09                     ;If no need to increment, return
-	clrf    POSTINC1                ;Clear tens of seconds and move pointer
-	incf    INDF1,F                 ;Increment minutes passed
+	bnz     B20                     ;If no need to increment, return
+	movlw   6                       ;Substract 6 from tens of seconds
+	subwf   INDF1,F                 ;
+	incf    PREINC1,F               ;Increment minutes passed
 	movf    INDF1,W                 ;Get minutes passed
 	sublw   10                      ;After 10 mins, increment tens of mins
-	bnz     B09                     ;If no need to increment, return
-	clrf    POSTINC1                ;Clear minutes and move pointer
-	incf    INDF1,F                 ;Increment tens of minutes passed
-B09
+	bnz     B20                     ;If no need to increment, return
+	movlw   10                      ;Substract 10 from minutes
+	subwf   INDF1,F                 ;
+	incf    PREINC1,F               ;Increment tens of minutes passed
+B20
+	return
+
+;;;;;;; ClockDecrement subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; Decrements a clock vector found in INDF1 by 10msec and updates it to be
+; presentable in the form of 00:00.00. If the clock reaches zero, does nothing.
+
+ClockDecrement
+	movlw   0                       ;Check if msec is zero
+	cpfsgt  INDF1
+	bra     B21
+	decf    INDF1,F                 ;Decrement milliseconds
+	return                          ;Done
+B21
+	cpfsgt  INDF1+1                 ;Check if seconds are zero
+	bra     B22
+	decf    INDF1+1,F               ;Decrement seconds
+	movlf   99,INDF1                ;990 milliseconds left
+B22
+	movlw   0                       ;movlf call changed word register
+	cpfsgt  INDF1+2                 ;Check if tens of seconds is zero
+	bra     B23
+	decf    INDF1+2                 ;Decrement tens of seconds
+	movlf   9,INDF1+1               ;9 seconds plus
+	movlf   99,INDF1                ;990 milliseconds left
+B23
+	movlw   0                       ;movlf call changed word register
+	cpfsgt  INDF1+3                 ;Check if minutes are zero
+	bra     B24
+	decf    INDF1+3                 ;Decrement minutes
+	movlf   5,INDF1+2               ;50 seconds plus
+	movlf   9,INDF1+1               ;9 seconds plus
+	movlf   99,INDF1                ;990 milliseconds are left
+B24
+	movlw   0                       ;movlf call changed word register
+	cpfsgt  INDF1+4                 ;Check if tens of minutes is zero
+	return                          ;Everything was zero
+	decf    INDF1+4                 ;Decrement tens of minutes
+	movlf   9,INDF1+3               ;9 minutes plus
+	movlf   5,INDF1+2               ;50 seconds plus
+	movlf   9,INDF1+1               ;9 seconds plus
+	movlf   99,INDF1                ;990 milliseconds are left
 	return
 
 ;;;;;;; UpdateClockV subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -337,10 +570,10 @@ UpdateClockV
 BlinkAlive
 	bsf     PORTA,RA4               ;Turn off LED ('1' => OFF lor LED D2)
 	decf    ALIVECNT,F              ;Decrement loop counter and return if nz
-	bnz     B10
+	bnz     B25
 	movlf   100,ALIVECNT            ;Reinitialize ALIVECNT
 	bcf     PORTA,RA4               ;Turn on LED for ten msec
-B10
+B25
 	return
 
 ;;;;;;; T40 subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -352,11 +585,11 @@ T40
 	movlw 100/3                     ;Each REPEAT loop takes 3 cycles
 	movwf COUNT
 	;REPEAT_
-L11
+L26
 	  decf    COUNT,F
 	;UNTIL_   .Z.
-	bnz     L11
-RL11
+	bnz     L26
+RL26
 	return
 
 ;;;;;;; LoopTime subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -388,6 +621,10 @@ LoopTime
 ;;;;;;; Constant Strings ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 LCDstr  db      0x33,0x32,0x28,0x01,0x0c,0x06,0x00 ;init string for LCD display
+Modec   db      0x80,A'M',A'o',A'd',A'e',A':',0x00 ;"Mode:"
+Normal  db      0xC0,A'N',A'o',A'r',A'm',A'a',A'l',A' ',0x00 ;"Normal"
+Fischer db      0xC0,A'F',A'i',A's',A'c',A'h',A'e',A'r',0x00 ;"Fischer"
+Delay   db      0xC0,A'D',A'e',A'l',A'a',A'y',A' ',A' ',0x00 ;"Delay"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
