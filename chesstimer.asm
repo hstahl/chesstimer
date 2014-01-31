@@ -253,10 +253,10 @@ TimeMenu
 	movlw   15
 	cpfseq  TEMP                    ;if timer is at 15 minutes, skip
 	bra     B08
-	movlf   0,WCLOCK+3              ;Zero minutes
-	movlf   0,WCLOCK+4              ;Zero tens of minutes
-	movlf   0,BCLOCK+4              ;Zero tens of minutes
-	movlf   0,BCLOCK+3              ;Zero minutes
+	clrf    WCLOCK+3                ;Zero minutes
+	clrf    WCLOCK+4                ;Zero tens of minutes
+	clrf    BCLOCK+4                ;Zero tens of minutes
+	clrf    BCLOCK+3                ;Zero minutes
 	bsf     STATS,INC               ;Set clocks to increment over time
 	bra     B09
 B08
