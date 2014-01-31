@@ -245,20 +245,18 @@ TimeMenu
 	bra     B10
 	btfss   STATS,BTN               ;If button wasn't pressed, return
 	bra     B09
-	lfsr    1,WCLOCK+4              ;Load tens of minutes to FSR1
-	movf    POSTDEC1,W              ;Get tens of minutes
+	movf    WCLOCK+4,W              ;Get tens of minutes
 	mullw   10                      ;Multiply by ten
 	movf    PRODL,W                 ;Get product
-	addwf   FSR1,W                  ;Add minutes
+	addwf   WCLOCK+3,W              ;Add minutes
 	movwf   TEMP                    ;Store minutes
 	movlw   15
-	cpfslt  TEMP                    ;If less than 15, skip
+	cpfseq  TEMP                    ;if timer is at 15 minutes, skip
 	bra     B08
-	movlf   0,POSTINC1              ;Zero minutes
-	movlf   0,FSR1                  ;Zero tens of minutes
-	lfsr    1,BCLOCK+4              ;Point FSR1 to tens of minutes
-	movlf   0,POSTDEC1              ;Zero tens of minutes
-	movlf   0,INDF1                 ;Zero minutes
+	movlf   0,WCLOCK+3              ;Zero minutes
+	movlf   0,WCLOCK+4              ;Zero tens of minutes
+	movlf   0,BCLOCK+4              ;Zero tens of minutes
+	movlf   0,BCLOCK+3              ;Zero minutes
 	bsf     STATS,INC               ;Set clocks to increment over time
 	bra     B09
 B08
@@ -267,6 +265,7 @@ B08
 	lfsr    1,WCLOCK
 	rcall   ClockIncrement          ;Fix clock formatting
 	clrf    INDF1                   ;As a side effect, 10 msec were added
+	addwf   BCLOCK+3                ;Add 5 to minutes
 	lfsr    1,BCLOCK
 	rcall   ClockIncrement          ;Fix clock formatting
 	clrf    INDF1                   ;As a side effect, 10 msec were added
