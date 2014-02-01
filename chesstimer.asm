@@ -3,7 +3,11 @@
 ; Uses onboard LCD for timekeeping
 ; Uses Timer0 for ten millisecond loop time
 ; Button changes turn between players
-; TODO: additional time behavior
+; Selectable play time: 5, 10 or 15 minutes decreasing time or incrementing time
+; Selectable addional time: Fischer 5 seconds added or a 5 second delay at the
+; beginning of a turn
+; Cycle through menus with a single button click and make selections with a
+; double click.
 ;
 ;;;;;;; Program Hierarchy ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
@@ -15,6 +19,7 @@
 ;       T40
 ;   Button
 ;     Do_Button
+;       AddTime
 ;       DoubleClick
 ;   BlinkAlive
 ;   ModeMenu
@@ -26,6 +31,7 @@
 ;   WaitButton
 ;     Button
 ;       Do_Button
+;         AddTime
 ;         DoubleClick
 ;     BlinkAlive
 ;     LoopTime
@@ -66,6 +72,7 @@ DELAY   equ     7                       ;Delay before running clock
 	cblock  0x001                   ;Block in access memory
 	COUNT                           ;Counter for use in loops
 	TEMP                            ;Temporary variable available for use
+	DELAYCNTR                       ;In delay mode, 5sec delay before timing
 	DBLCLKCNTR                      ;Counts time window for a double click
 	ALIVECNT                        ;Used by BlinkAlive subroutine
 	TMR0LCOPY                       ;Copy of sixteen-bit Timer0 for LoopTime
@@ -412,7 +419,10 @@ Do_Button
 	btfss   OLDBUTTON,3             ;Find only rising edges, return on
 	return                          ;falling
 	btg     STATS,TURN              ;Change turn immediately (no 0.5s wait)
-	movf    DBLCLKCNTR,W            ;Is the counter zero?
+	movlf   500,DELAYCNTR           ;When turn changes, reset delay counter
+	btfsc   STATS,FISCH             ;Is fischer added time mode set?
+	rcall   AddTime                 ;Add 5 seconds to current player's clock
+	movf    DBLCLKCNTR,F            ;Is the counter zero?
 	bz      B17                     ;If not, then
 	rcall   DoubleClick             ;It was a double click!
 	return
@@ -435,7 +445,7 @@ DoubleClick
 
 ClockSelect
 	btfss   STATS,PLAY              ;If play flag isn't set, return
-	bra     B19
+	return
 	btfss   STATS,TURN              ;Skip if white's turn
 	bra     B18                     ;Select black's clock
                                         ;Select white's clock
@@ -449,7 +459,7 @@ ClockSelect
 	rcall   UpdateClockV            ;Update clock vector
 	lfsr    0,LCDTOPROW             ;Load address of LCDTOPROW to FSR0
 	rcall   DisplayV                ;Display time played
-	bra     B19
+	return
 B18
 	lfsr    1,BCLOCK                ;Load address of BCLOCK to FSR1
 	btfss   STATS,INC               ;Skip if clocks are set to increment
@@ -461,15 +471,22 @@ B18
 	rcall   UpdateClockV            ;Update clock vector
 	lfsr    0,LCDBOTROW             ;Load address of LCDBOTROW to FSR0
 	rcall   DisplayV                ;Display time played
-B19
 	return
 
 ;;;;;;; ClockIncrement subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
 ; Increments a clock vector found in INDF1 by 10msec and updates it to be
-; presentable in the form of 00:00.00
+; presentable in the form of 00:00.00. In delay mode decrements delay counter
+; before incrementing clock.
 
 ClockIncrement
+	btfss   STATS,DELAY             ;Is delay mode enabled?
+	bra     B19                     ;If not, skip to incrementing
+	movf    DELAYCNTR,F             ;Is it zero?
+	bz      B19
+	decf    DELAYCNTR,F             ;Decrement delay
+	return                          ;Skip incrementing until delay is zero
+B19
 	incf    INDF1,F                 ;Increment (tens of) milliseconds by 1
 	movf    INDF1,W                 ;Get amount of msec passed
 	sublw   100                     ;After 100*10msec, increment seconds
@@ -502,34 +519,42 @@ B20
 ;
 ; Decrements a clock vector found in INDF1 by 10msec and updates it to be
 ; presentable in the form of 00:00.00. If the clock reaches zero, does nothing.
+; In delay mode, decrements delay counter before decrementing clock.
 
 ClockDecrement
+	btfss   STATS,DELAY             ;Is delay mode enabled?
+	bra     B21                     ;If not, skip to decrementing
+	movf    DELAYCNTR,F             ;Is it zero?
+	bz      B21                     ;If zero, skip to decrementing
+	decf    DELAYCNTR,F             ;Decrement delay
+	return                          ;Skip decrementing until delay is zero
+B21
 	movlw   0                       ;Check if msec is zero
 	cpfsgt  INDF1
-	bra     B21
+	bra     B22
 	decf    INDF1,F                 ;Decrement milliseconds
 	return                          ;Done
-B21
-	cpfsgt  INDF1+1                 ;Check if seconds are zero
-	bra     B22
-	decf    INDF1+1,F               ;Decrement seconds
-	movlf   99,INDF1                ;990 milliseconds left
 B22
-	movlw   0                       ;movlf call changed word register
-	cpfsgt  INDF1+2                 ;Check if tens of seconds is zero
+	cpfsgt  INDF1+1                 ;Check if seconds are zero
 	bra     B23
-	decf    INDF1+2                 ;Decrement tens of seconds
-	movlf   9,INDF1+1               ;9 seconds plus
+	decf    INDF1+1,F               ;Decrement seconds
 	movlf   99,INDF1                ;990 milliseconds left
 B23
 	movlw   0                       ;movlf call changed word register
-	cpfsgt  INDF1+3                 ;Check if minutes are zero
+	cpfsgt  INDF1+2                 ;Check if tens of seconds is zero
 	bra     B24
+	decf    INDF1+2                 ;Decrement tens of seconds
+	movlf   9,INDF1+1               ;9 seconds plus
+	movlf   99,INDF1                ;990 milliseconds left
+B24
+	movlw   0                       ;movlf call changed word register
+	cpfsgt  INDF1+3                 ;Check if minutes are zero
+	bra     B25
 	decf    INDF1+3                 ;Decrement minutes
 	movlf   5,INDF1+2               ;50 seconds plus
 	movlf   9,INDF1+1               ;9 seconds plus
 	movlf   99,INDF1                ;990 milliseconds are left
-B24
+B25
 	movlw   0                       ;movlf call changed word register
 	cpfsgt  INDF1+4                 ;Check if tens of minutes is zero
 	return                          ;Everything was zero
@@ -538,6 +563,29 @@ B24
 	movlf   5,INDF1+2               ;50 seconds plus
 	movlf   9,INDF1+1               ;9 seconds plus
 	movlf   99,INDF1                ;990 milliseconds are left
+	return
+
+;;;;;;; AddTime subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; In Fischer added time mode, adds 5 seconds to the current players clock in the
+; beginning of the turn. Does not reformat the clocks. If clocks are set to
+; increment, does nothing. At the moment added time is not implemented for
+; incrementing time.
+
+AddTime
+	btfss   STATS,PLAY              ;Has the game started?
+	return                          ;Return if not
+	btfsc   STATS,MENU              ;Are we in the WaitButton subroutine?
+	return                          ;Return if we are
+	btfsc   STATS,INC               ;Are clocks set to increment?
+	return                          ;Return if they are
+	movlw   5                       ;We want to add or substact 5 seconds
+	btfss   STATS,TURN              ;Skip if white's turn
+	bra     B26
+	addwf   WCLOCK+1,F              ;Add 5 seconds for white
+	return
+B26
+	addwf   BCLOCK+1,F              ;Add 5 seconds for black
 	return
 
 ;;;;;;; UpdateClockV subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -570,10 +618,10 @@ UpdateClockV
 BlinkAlive
 	bsf     PORTA,RA4               ;Turn off LED ('1' => OFF lor LED D2)
 	decf    ALIVECNT,F              ;Decrement loop counter and return if nz
-	bnz     B25
+	bnz     B27
 	movlf   100,ALIVECNT            ;Reinitialize ALIVECNT
 	bcf     PORTA,RA4               ;Turn on LED for ten msec
-B25
+B27
 	return
 
 ;;;;;;; T40 subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -585,11 +633,11 @@ T40
 	movlw 100/3                     ;Each REPEAT loop takes 3 cycles
 	movwf COUNT
 	;REPEAT_
-L26
+L28
 	  decf    COUNT,F
 	;UNTIL_   .Z.
-	bnz     L26
-RL26
+	bnz     L28
+RL28
 	return
 
 ;;;;;;; LoopTime subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
