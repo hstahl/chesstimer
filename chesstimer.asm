@@ -203,6 +203,10 @@ RL02
 	return
 
 ;;;;;;; ModeMenu subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; A menu to select the clock mode: added time, delayed count or neither.
+; Shown immediately after startup. A press of the button cycles options and a
+; rapid double click chooses the currently displayed option.
 
 ModeMenu
 	btfsc   STATS,PLAY              ;If game has started, skip menu
@@ -244,6 +248,10 @@ B07
 	return
 
 ;;;;;;; TimeMenu subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; The second menu to be shown. Players choose how much time the clocks should
+; have or if they should count up from zero. Choice is made the same way as
+; above.
 
 TimeMenu
 	btfsc   STATS,PLAY              ;If game has started, skip menu
