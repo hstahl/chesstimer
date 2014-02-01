@@ -26,6 +26,8 @@
 ;     DisplayC
 ;       T40
 ;   TimeMenu
+;     ClockIncrement
+;     UpdateClockV
 ;     DisplayV
 ;       T40
 ;   WaitButton
