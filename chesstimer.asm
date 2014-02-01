@@ -277,11 +277,17 @@ B08
 	rcall   ClockIncrement          ;Fix clock formatting
 	clrf    BCLOCK                  ;As a side effect, 10 msec were added
 	bcf     STATS,INC               ;Set clocks to decrement over time
-B09
+B09                                     ;Update the values on the LCD
+	lfsr    1,WCLOCK+1              ;Point to seconds in WCLOCK
+	lfsr    0,LCDTOPROW+7           ;Load address of LCDTOPROW+7 to FSR0
+	rcall   UpdateClockV            ;Update clock vector
 	lfsr    0,LCDTOPROW
-	rcall   DisplayV                ;Display clocks
+	rcall   DisplayV                ;Display white's clock
+	lfsr    1,BCLOCK+1              ;Point to seconds in BCLOCK
+	lfsr    0,LCDBOTROW+7           ;Load address of LCDBOTROW+7 to FSR0
+	rcall   UpdateClockV            ;Update clock vector
 	lfsr    0,LCDBOTROW
-	rcall   DisplayV
+	rcall   DisplayV                ;Display black's clock
 	return
 B10
 	bsf     STATS,PLAY              ;Don't come to these menus again
@@ -590,7 +596,8 @@ B26
 
 ;;;;;;; UpdateClockV subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
-; Updates the clock string in INDF0 by the values found in INDF1.
+; Updates the clock string in INDF0 by the values found in INDF1. Both should
+; point to the position of seconds (eg. LCDBOTROW+7 and BCLOCK+1)
 
 Zeropos equ     A'0'                    ;Need to add this to a number to get an
                                         ;ascii character of it
