@@ -271,11 +271,11 @@ B08
 	addwf   WCLOCK+3,F              ;Add 5 to minutes
 	lfsr    1,WCLOCK
 	rcall   ClockIncrement          ;Fix clock formatting
-	clrf    INDF1                   ;As a side effect, 10 msec were added
+	clrf    WCLOCK                  ;As a side effect, 10 msec were added
 	addwf   BCLOCK+3,F              ;Add 5 to minutes
 	lfsr    1,BCLOCK
 	rcall   ClockIncrement          ;Fix clock formatting
-	clrf    INDF1                   ;As a side effect, 10 msec were added
+	clrf    BCLOCK                  ;As a side effect, 10 msec were added
 	bcf     STATS,INC               ;Set clocks to decrement over time
 B09
 	lfsr    0,LCDTOPROW
