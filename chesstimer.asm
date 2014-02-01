@@ -260,12 +260,12 @@ TimeMenu
 	bsf     STATS,INC               ;Set clocks to increment over time
 	bra     B09
 B08
-	movlw   5                       ;If clocks were at 0...
-	addwf   INDF1,F                 ;Add 5 to minutes
+	movlw   5                       ;If clocks were at less than 15 minutes
+	addwf   WCLOCK+3,F              ;Add 5 to minutes
 	lfsr    1,WCLOCK
 	rcall   ClockIncrement          ;Fix clock formatting
 	clrf    INDF1                   ;As a side effect, 10 msec were added
-	addwf   BCLOCK+3                ;Add 5 to minutes
+	addwf   BCLOCK+3,F              ;Add 5 to minutes
 	lfsr    1,BCLOCK
 	rcall   ClockIncrement          ;Fix clock formatting
 	clrf    INDF1                   ;As a side effect, 10 msec were added
@@ -396,12 +396,11 @@ Button
 	movlw   0                       ;
 	cpfsgt  DBLCLKCNTR              ;Was the counter reset now?
 	bsf     STATS,BTN               ;After .5 seconds, do a single press of	
-                                        ;the button
+B16                                     ;the button
 	movf    PORTD,W
 	andlw   b'00001000'             ;All except button bit = 0
 	cpfseq  OLDBUTTON
 	rcall   Do_Button               ;If state of button changed, go to
-B16
 	return                          ;Do_Button
 
 ;;;;;;; Do_Button subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -431,7 +430,8 @@ DoubleClick
 
 ;;;;;;; ClockSelect subroutine ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
-; Selects the correct clock to increment or decrement in this loop.
+; Selects the correct clock to increment or decrement or returns immediately if
+; the game hasn't started yet.
 
 ClockSelect
 	btfss   STATS,PLAY              ;If play flag isn't set, return
@@ -449,6 +449,7 @@ ClockSelect
 	rcall   UpdateClockV            ;Update clock vector
 	lfsr    0,LCDTOPROW             ;Load address of LCDTOPROW to FSR0
 	rcall   DisplayV                ;Display time played
+	bra     B19
 B18
 	lfsr    1,BCLOCK                ;Load address of BCLOCK to FSR1
 	btfss   STATS,INC               ;Skip if clocks are set to increment
@@ -620,7 +621,7 @@ LoopTime
 ;;;;;;; Constant Strings ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 LCDstr  db      0x33,0x32,0x28,0x01,0x0c,0x06,0x00 ;init string for LCD display
-Modec   db      0x80,A'M',A'o',A'd',A'e',A':',0x00 ;"Mode:"
+Modec   db      0x80,A'M',A'o',A'd',A'e',A':',A' ',A' ',0x00 ;"Mode:"
 Normal  db      0xC0,A'N',A'o',A'r',A'm',A'a',A'l',A' ',0x00 ;"Normal"
 Fischer db      0xC0,A'F',A'i',A's',A'c',A'h',A'e',A'r',0x00 ;"Fischer"
 Delay   db      0xC0,A'D',A'e',A'l',A'a',A'y',A' ',A' ',0x00 ;"Delay"
