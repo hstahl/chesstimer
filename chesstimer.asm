@@ -194,7 +194,7 @@ L02
 	  rcall   Button                ;Check for button press
 	  rcall   BlinkAlive            ;Blink LED while waiting
 	  rcall   LoopTime              ;Wait 10msec
-          btfss   STATS,TURN            ;Is it zero?
+          btfsc   STATS,TURN            ;Is it zero?
 	;UNTIL_   .Z.
 	bra     L02
 RL02
