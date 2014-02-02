@@ -145,7 +145,8 @@ Initial
 	clrf    OLDBUTTON               ;OLDBUTTON = 0
 	clrf    STATS
 	bsf     STATS,TURN              ;White player starts
-
+	bsf     STATS,INC               ;Clocks are initially set to zero and
+                                        ;incrementing
 	clrf    WCLOCK                  ;White player's msec
 	clrf    WCLOCK+1                ;White player's sec
 	clrf    WCLOCK+2                ;White player's tens of secs
@@ -195,7 +196,7 @@ L02
 	  rcall   BlinkAlive            ;Blink LED while waiting
 	  rcall   LoopTime              ;Wait 10msec
           btfsc   STATS,TURN            ;Is it zero?
-	;UNTIL_   .Z.
+	;UNTIL_   .1.
 	bra     L02
 RL02
 	bcf     STATS,MENU              ;Don't visit the loop again.
